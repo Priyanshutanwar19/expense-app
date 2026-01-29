@@ -1,5 +1,6 @@
 const userDao = require('../dao/userDao');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken')
 const authController = {
     login: async (req, res) => {
         const { email, password } = req.body;
@@ -11,18 +12,31 @@ const authController = {
         }
 
         const user = await userDao.findByEmail(email);
-
+        if(!user){
+            return res.status(401).json({
+                message: "user not found"
+            })
+        }
         const isPasswordMatched = await bcrypt.compare(password, user.password);
-        if (user && isPasswordMatched) {
-            return res.status(200).json({
-                message: 'User Authenticated',
-                user: { id: user._id, name: user.name, email: user.email }
-            });
-        } else {
+        console.log("verfied")
+        if(!isPasswordMatched){
             return res.status(400).json({
                 message: 'Invalid email or password'
             });
         }
+
+        const accessToken = jwt.sign(
+            {id: user._id}, 
+            process.env.ACCESS_TOKEN_SECRET,
+            {expiresIn: '15m'}
+        )
+
+        res.cookie("accessToken", accessToken);
+
+        return res.status(200).json({
+                message: 'User Authenticated',
+                user: { id: user._id, name: user.name, email: user.email }
+            });
     },
     register: async (req, res) => {
         try {

@@ -3,7 +3,9 @@ const User = require('../model/users');
 const userDao = {
     findByEmail: async (email) => {
         try {
+            console.log("Finding user");
             const user = await User.findOne({ email });
+            console.log("user found", user);
             return user;
         } catch (error) {
             console.error('Error finding user by email:', error);

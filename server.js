@@ -1,10 +1,12 @@
 require('dotenv').config();
 
+const cors = require('cors');
 const express = require('express');
 const mongoose = require('mongoose');
 const authRoutes = require('./src/routes/authRoutes');
 const groupRoutes= require('./src/routes/groupRoutes');
 const groupDao= require('./src/dao/groupDao');
+const cookieParser = require('cookie-parser');
 
 mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
     .then(() => console.log('MongoDB Connected'))
@@ -12,7 +14,12 @@ mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
 
 const app = express();
 
-app.use(express.json());  //Middleware
+app.use(express.json());  //Middleware5
+app.use(cookieParser());
+app.use(cors({
+    origin:process.env.CLIENT_URL,
+    credentials: true
+}))
 
 app.use('/auth',authRoutes);
 app.use('/group',groupRoutes);

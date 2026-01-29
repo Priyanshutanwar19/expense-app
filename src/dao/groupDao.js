@@ -18,10 +18,16 @@ const groupDao = {
         },{new: true});
     },
 
-    removeMembers: async (...membersEmail) => {
-        
+    removeMembers: async (groupId, ...membersEmails) => {
+    return await Group.findByIdAndUpdate(groupId,{
+            $pull: {
+                membersEmail: { $in: membersEmail }
+            }
+        },
+        { new: true }
+    );
+},
 
-    },  
     getGroupByEmail: async (email) => {
         return await Group.find({membersEmail: email});
 
@@ -29,13 +35,6 @@ const groupDao = {
     getGroupByStatus: async (status) => {
 
     },
-
-    /**
-     *We'll only return when was the last time group
-     * was settled to begin with,
-     * In future, we can move this to separate entity!
-     * @param {*} group
-     */
 
 };
 
