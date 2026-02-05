@@ -1,29 +1,33 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
 const authMiddleware = {
     protect: async (request, response, next) => {
         try {
+            const token = request.cookies?.jwtToken;
 
-            const header = request.headers.authorization;
-            if(!header || !header.startsWith("Bearer ")){
+            if (!token) {
                 return response.status(401).json({
-                    success: false,
-                    message: "Not authorized, token missing"
+                    error: 'Unauthorized access'
                 });
             }
 
-            const token = header.split(" ")[1];
-            const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-            request.userId = decoded.id;
-            next();
+            try {
+                const user = jwt.verify(token, process.env.JWT_SECRET);
+                request.user = user;
+                next();
+            } catch (error) {
+                return response.status(401).json({
+                    error: 'Unauthorized access'
+                });
+            }
 
         } catch (error) {
-            return response.status(401).json({
-                success: false,
-                message: "Not authorized, invalid token"
+            console.log(error);
+            response.status(500).json({
+                message: 'Internal server error'
             });
         }
-    }
+    },
 };
 
 module.exports = authMiddleware;

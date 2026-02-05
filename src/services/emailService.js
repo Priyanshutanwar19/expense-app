@@ -5,7 +5,7 @@ const emailClient = nodemailer.createTransport({
     auth: {
         user: process.env.GOOGLE_EMAIL,
         pass: process.env.GOOGLE_APP_PASSWORD,
-    },
+    }
 });
 
 const emailService = {
@@ -14,7 +14,7 @@ const emailService = {
             from: process.env.GMAIL_EMAIL,
             to: to,
             subject: subject,
-            text: body,
+            text: body
         };
 
         await emailClient.sendMail(emailOptions);
