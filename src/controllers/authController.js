@@ -1,191 +1,180 @@
-const userDao = require("../dao/userDao");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const { OAuth2Client } = require("google-auth-library");
+const userDao = require('../dao/userDao');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const { validationResult } = require('express-validator');
 
 const authController = {
-  // login
-  login: async (req, res) => {
-    const { email, password } = req.body;
+    login: async (request, response) => {
+        const errors = validationResult(request);
+        if (!errors.isEmpty()) {
+            return response.status(400).json({
+                errors: errors.array()
+            });
+        }
+        
+        const { email, password } = request.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and Password are required!!",
-      });
-    }
+        const user = await userDao.findByEmail(email);
 
-    const user = await userDao.findByEmail(email);
-    if (!user) {
-      return res.status(401).json({
-        message: "User not found",
-      });
-    }
+        const isPasswordMatched = await bcrypt.compare(password, user.password);
+        if (user && isPasswordMatched) {
+            const token = jwt.sign({
+                name: user.name,
+                email: user.email,
+                id: user._id
+            }, process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
 
-    const isPasswordMatched = await bcrypt.compare(password, user.password);
-    if (!isPasswordMatched) {
-      return res.status(400).json({
-        message: "Invalid email or password",
-      });
-    }
+            response.cookie('jwtToken', token, {
+                httpOnly: true,
+                secure: true,
+                domain: 'localhost',
+                path: '/'
+            });
+            return response.status(200).json({
+                message: 'User authenticated',
+                user: user
+            });
+        } else {
+            return response.status(400).json({
+                message: 'Invalid email or password'
+            });
+        }
+    },
 
-    const accessToken = jwt.sign(
-      { id: user._id, name: user.name, email: user.email },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "15m" }
-    );
+    register: async (request, response) => {
+        const { name, email, password } = request.body;
 
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      sameSite: "lax",
-    });
-
-    return res.status(200).json({
-      message: "User Authenticated",
-      user: { id: user._id, name: user.name, email: user.email },
-    });
-  },
-
-  // register
-  register: async (req, res) => {
-    try {
-      const { name, email, password } = req.body;
-
-      if (!name || !email || !password) {
-        return res.status(400).json({
-          message: "Name, Email, Password are required!!",
-        });
-      }
-
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const user = await userDao.create({
-        name,
-        email,
-        password: hashedPassword,
-      });
-
-      if (!user) {
-        return res.status(400).json({
-          message: "Invalid user",
-        });
-      }
-
-      return res.status(200).json({
-        message: "User registered",
-        user: user,
-      });
-    } catch (error) {
-      console.log(error);
-      return res.status(500).json({
-        message: "Internal Server Error",
-      });
-    }
-  },
-
-  // check login
-  isUserLoggedIn: async (req, res) => {
-    try {
-      const token = req.cookies.accessToken;
-
-      if (!token) {
-        return res.status(401).json({
-          message: "Unauthorized access",
-        });
-      }
-
-      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, user) => {
-        if (error) {
-          return res.status(401).json({
-            message: "Invalid token",
-          });
+        if (!name || !email || !password) {
+            return response.status(400).json({
+                message: 'Name, Email, Password are required'
+            });
         }
 
-        return res.json({
-          user: user,
-        });
-      });
-    } catch (error) {
-      console.log(error);
-      return res.status(500).json({
-        message: "Internal server error",
-      });
-    }
-  },
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-  // logout
-  logout: async (req, res) => {
-    try {
-      res.clearCookie("accessToken");
-      return res.json({ message: "Logout successful" });
-    } catch (error) {
-      console.log(error);
-      return res.status(500).json({
-        message: "Internal server error",
-      });
-    }
-  },
+        userDao.create({
+            name: name,
+            email: email,
+            password: hashedPassword
+        })
+            .then(u => {
+                return response.status(200).json({
+                    message: 'User registered',
+                    user: { id: u._id }
+                });
+            })
+            .catch(error => {
+                if (error.code === 'USER_EXIST') {
+                    console.log(error);
+                    return response.status(400).json({
+                        message: 'User with the email already exist'
+                    });
+                } else {
+                    return response.status(500).json({
+                        message: "Internal server error"
+                    });
+                }
+            });
+    },
 
-  // ✅ GOOGLE SSO (FIXED SYNTAX + LOCALHOST COOKIE)
-  googleSso: async (request, response) => {
-    try {
-      const { idToken } = request.body;
+    isUserLoggedIn: async (request, response) => {
+        try {
+            const token = request.cookies?.jwtToken;
 
-      if (!idToken) {
-        return response.status(401).json({ message: "Invalid request" });
-      }
+            if (!token) {
+                return response.status(401).json({
+                    message: 'Unauthorized access'
+                });
+            }
 
-      const googleClient = new OAuth2Client(
-        process.env.GOOGLE_CLIENT_ID
-      );
+            jwt.verify(token, process.env.JWT_SECRET, (error, user) => {
+                if (error) {
+                    return response.status(401).json({
+                        message: 'Invalid token'
+                    });
+                } else {
+                    response.json({
+                        user: user
+                    });
+                }
 
-      const googleResponse = await googleClient.verifyIdToken({
-        idToken: idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
+            });
+        } catch (error) {
+            console.log(error);
+            return response.status(500).json({
+                message: 'Internal server error'
+            });
+        }
+    },
 
-      const payload = googleResponse.getPayload();
-      const { sub: googleId, name, email } = payload;
+    logout: async (request, response) => {
+        try {
+            response.clearCookie('jwtToken');
+            response.json({ message: 'Logout successfull' });
+        } catch (error) {
+            console.log(error);
+            return response.status(500).json({
+                message: 'Internal server error'
+            });
+        }
+    },
 
-      let user = await userDao.findByEmail(email);
+    googleSso: async (request, response) => {
+        try {
+            const { idToken } = request.body;
+            if (!idToken) {
+                return response.status(401).json({ message: 'Invalid request' });
+            }
 
-      if (!user) {
-        user = await userDao.create({
-          name: name,
-          email: email,
-          googleId: googleId,
-        });
-      }
+            const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+            const googleResponse = await googleClient.verifyIdToken({
+                idToken: idToken,
+                audience: process.env.GOOGLE_CLIENT_ID
+            });
 
-      const token = jwt.sign(
-        {
-          name: user.name,
-          email: user.email,
-          googleId: user.googleId,
-          id: user._id,
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "1h" }
-      );
+            const payload = googleResponse.getPayload();
+            const { sub: googleId, name, email } = payload;
 
-      // 🔧 ONLY LOCALHOST FIX HERE
-      response.cookie("jwtToken", token, {
-        httpOnly: true,
-        secure: false, // localhost
-        path: "/",
-      });
+            let user = await userDao.findByEmail(email);
+            if (!user) {
+                user = await userDao.create({
+                    name: name,
+                    email: email,
+                    googleId: googleId
+                });
+            }
 
-      return response.status(200).json({
-        message: "User authenticated",
-        user: user,
-      });
-    } catch (error) {
-      console.log(error);
-      return response.status(500).json({
-        message: "Internal server error",
-      });
-    }
-  },
+            const token = jwt.sign({
+                name: user.name,
+                email: user.email,
+                googleId: user.googleId,
+                id: user._id
+            }, process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            response.cookie('jwtToken', token, {
+                httpOnly: true,
+                secure: true,
+                domain: 'localhost',
+                path: '/'
+            });
+            return response.status(200).json({
+                message: 'User authenticated',
+                user: user
+            });
+
+        } catch (error) {
+            console.log(error);
+            return response.status(500).json({
+                message: 'Internal server error'
+            });
+        }
+    },
 };
 
 module.exports = authController;

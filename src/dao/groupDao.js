@@ -33,6 +33,7 @@ const groupDao = {
 
     },
     getGroupByStatus: async (status) => {
+        return await Group.find({"paymentStatus.isPaid": status});
 
     },
 
