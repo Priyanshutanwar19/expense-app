@@ -1,23 +1,10 @@
 const User = require('../model/users');
 
-const generateTemporaryPassword = (desiredLength) => {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-
-  for (let i = 0; i < desiredLength; i++) {
-    result += chars.charAt(
-      Math.floor(Math.random() * chars.length)
-    );
-  }
-
-  return result;
-};
-
 const rbacDao = {
   create: async (email, name, role, adminId) => {
     return await User.create({
       email: email,
-      password: generateTemporaryPassword(8),
+      password: password,
       name: name,
       role: role,
       adminId: adminId
