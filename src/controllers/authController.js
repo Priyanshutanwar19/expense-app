@@ -17,19 +17,30 @@ const authController = {
         const { email, password } = request.body;
 
         const user = await userDao.findByEmail(email);
+
+        if (!user) {
+            return response.status(400).json({
+                message: 'Invalid email or password'
+            });
+        }
+
         user.role = user.role ? user.role : ADMIN_ROLE;
         user.adminId = user.adminId ? user.adminId : user._id;
 
-        const isPasswordMatched = await bcrypt.compare(password, user.password);
+        const isPasswordMatched = await bcrypt.compare(password, user?.password);
         if (user && isPasswordMatched) {
-            const token = jwt.sign({
-                name: user.name,
-                email: user.email,
-                _id: user._id,
-
-            //The logic below ensure bbackward compatibility.
-                role: user.role ? user.adminId : user._id,
-            }, process.env.JWT_SECRET,
+            user.role= user.role ? user.role : ADMIN_ROLE;
+            user.adminId = user.adminId ? user.adminId : user._id;
+            const token = jwt.sign(
+                {
+                    name: user.name,
+                    email: user.email,
+                    _id: user._id,
+                    // Ensure correct role and adminId are present
+                    role: user.role ? user.role : ADMIN_ROLE,
+                    adminId: user.adminId ? user.adminId : user._id,
+                },
+                process.env.JWT_SECRET,
                 { expiresIn: '1h' }
             );
 
@@ -37,7 +48,7 @@ const authController = {
                 httpOnly: true,
                 secure: true,
                 domain: 'localhost',
-                path: '/'
+                path: '/',
             });
             return response.status(200).json({
                 message: 'User authenticated',
@@ -156,14 +167,16 @@ const authController = {
                 });
             }
 
-            const token = jwt.sign({
-                name: user.name,
-                email: user.email,
-                googleId: user.googleId,
-                id: user._id,
-                role: user.role ? user.role: ADMIN_ROLE,
-                adminId: user.adminId ? user.adminId: user._id,
-            }, process.env.JWT_SECRET,
+            const token = jwt.sign(
+                {
+                    name: user.name,
+                    email: user.email,
+                    googleId: user.googleId,
+                    id: user._id,
+                    role: user.role ? user.role : ADMIN_ROLE,
+                    adminId: user.adminId ? user.adminId : user._id,
+                },
+                process.env.JWT_SECRET,
                 { expiresIn: '1h' }
             );
 
@@ -171,7 +184,7 @@ const authController = {
                 httpOnly: true,
                 secure: true,
                 domain: 'localhost',
-                path: '/'
+                path: '/',
             });
             return response.status(200).json({
                 message: 'User authenticated',

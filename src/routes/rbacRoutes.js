@@ -14,7 +14,7 @@ authorizeMiddleware(
 'user:update'), rbacController.update);
 router.post('/delete', 
 authorizeMiddleware(
-'user: delete'), rbacController.delete);
+'user:delete'), rbacController.delete);
 router.get('/', 
 authorizeMiddleware(
 'user:view'), rbacController.getAllUsers);

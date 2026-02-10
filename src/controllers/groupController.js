@@ -71,8 +71,21 @@ const groupController = {
     getGroupsByUser: async (request, response) => {
         try {
             const email = request.user.email;
-            const groups = await groupDao.getGroupByEmail(email);
-            response.status(200).json(groups);
+            const page = parseInt(request.query.page) || 1;
+            const limit = parseInt(request.query.limit) || 10;
+            const skip = (page - 1) * limit;
+
+            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, skip);
+
+            response.status(200).json({
+            groups: groups,
+            pagination: {
+                totalItems: totalCount,
+                totalPages: Math.ceil(totalCount / limit),
+                currentPage: page,
+                itemsPerPage: limit
+            }
+            });
         } catch (error) {
             response.status(500).json({ message: "Error fetching groups" });
         }
