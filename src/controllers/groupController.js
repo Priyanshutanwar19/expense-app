@@ -75,7 +75,14 @@ const groupController = {
             const limit = parseInt(request.query.limit) || 10;
             const skip = (page - 1) * limit;
 
-            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, skip);
+            const sortBy= request.query.sortBy || 'newest';
+
+            let sortOptions= { createdAt: -1};
+            if(sortBy === 'oldest'){
+                sortOptions={ createdAt: 1};
+            }
+            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, 
+skip, sortOptions);
 
             response.status(200).json({
             groups: groups,

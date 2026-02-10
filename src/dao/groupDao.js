@@ -49,7 +49,8 @@ const groupDao = {
         return group ? group.paymentStatus.date : null;
     },
 
-getGroupsPaginated: async (email, limit, skip) => {
+    // Default sorting order of createdAt is descending order (-1)
+getGroupsPaginated: async (email, limit, skip, sortOptions = { createdAt: -1 }) => {
 
   const [groups, totalCount] = await Promise.all([
     // Find groups with given email,
@@ -57,7 +58,7 @@ getGroupsPaginated: async (email, limit, skip) => {
     // pagination requests, and then perform
     // skip and limit to get results of desired page.
     Group.find({ membersEmail: email })
-      .sort({ createdAt: -1 })
+      .sort(sortOptions)
       .skip(skip)
       .limit(limit),
 
