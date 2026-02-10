@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const groupSchema = new mongoose.Schema({
     name: {type: String,required:true},
     description: {type: String, required: false},
-    adminEmail: {type: String, required: true },
+    adminEmail: {type: String, required: true, unique: true},
     
     createdAt: { type: Date, default: Date.now },
     membersEmail: [String],

@@ -22,7 +22,7 @@ const paymentsController = {
 
         const amountInPaise = CREDIT_TO_PAISA_MAPPING[credits];
 
-        const order = await razorpayClient.orders.createOrder({
+        const order = await razorpayClient.orders.create({
           amount: amountInPaise,
           currency: 'INR',
           receipt: `receipt_${Date.now()}`

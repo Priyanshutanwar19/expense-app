@@ -41,13 +41,19 @@ const groupController = {
             });
             userInfo.credits -= 1;
             userInfo.save();
-            
+
             response.status(201).json({
                 message: 'Group created successfully',
                 groupId: newGroup._id
             });
         } catch (error) {
             console.error(error);
+            // Handle duplicate key error for adminEmail
+            if (error.code === 11000 && error.keyPattern?.adminEmail) {
+                return response.status(400).json({ 
+                    message: "You already have a group. Only one group is allowed per user." 
+                });
+            }
             response.status(500).json({ message: "Internal server error" });
         }
     },
