@@ -1,10 +1,10 @@
 const User = require('../model/users');
 
 const rbacDao = {
-  create: async (email, name, role, adminId) => {
+  create: async (email, name, role, hashedPassword, adminId) => {
     return await User.create({
       email: email,
-      password: password,
+      password: hashedPassword,
       name: name,
       role: role,
       adminId: adminId

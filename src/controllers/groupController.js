@@ -1,4 +1,5 @@
 const groupDao = require("../dao/groupDao");
+const userDao = require("../dao/userDao");
 
 const groupController = {
 
@@ -6,6 +7,19 @@ const groupController = {
         try {
             const user = request.user;
             const { name, description, membersEmail, thumbnail } = request.body;
+            const userInfo = await userDao.findByEmail(user.email);
+
+            // This is to ensure backward compatibility for already created users
+            // not having credits attribute.
+            if (userInfo.credits === undefined) {
+            userInfo.credits = 1;
+            }
+
+            if (Number(userInfo.credits) === 0) {
+            return response.status(400).json({
+                message: 'You do not have enough credits to perform this operation'
+            });
+            }
 
             let allMembers = [user.email];
             if (membersEmail && Array.isArray(membersEmail)) {
@@ -25,7 +39,9 @@ const groupController = {
                     isPaid: false
                 }
             });
-
+            userInfo.credits -= 1;
+            userInfo.save();
+            
             response.status(201).json({
                 message: 'Group created successfully',
                 groupId: newGroup._id
