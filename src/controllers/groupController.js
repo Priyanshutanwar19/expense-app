@@ -139,6 +139,21 @@ skip, sortOptions);
         } catch (error) {
             response.status(500).json({ message: "Error fetching audit log" });
         }
+    },
+
+    getGroupById: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const group = await groupDao.getGroupById(groupId);
+            
+            if (!group) {
+                return response.status(404).json({ message: "Group not found" });
+            }
+
+            response.status(200).json(group);
+        } catch (error) {
+            response.status(500).json({ message: "Error fetching group" });
+        }
     }
 };
 

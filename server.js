@@ -5,6 +5,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const authRoutes = require('./src/routes/authRoutes');
 const groupRoutes= require('./src/routes/groupRoutes');
+const expenseRoutes = require('./src/routes/expenseRoutes');
 const groupDao= require('./src/dao/groupDao');
 const cookieParser = require('cookie-parser');
 const rbacRoutes = require('./src/routes/rbacRoutes');
@@ -26,6 +27,7 @@ app.use(cors({
 
 app.use('/auth',authRoutes);
 app.use('/group',groupRoutes);
+app.use('/expense', expenseRoutes);
 app.use('/users', rbacRoutes);
 app.use('/payments', paymentsRoutes);
 app.use('/profile', profileRoutes);

@@ -10,19 +10,26 @@ const permissions = {
         'group:update',
         'group:delete',
         'group:view',
+        'expense:create',
+        'expense:view',
+        'expense:delete',
         'payment:create'
     ],
 
     [VIEWER_ROLE]: [
         'user:view',
-        'group:view'
+        'group:view',
+        'expense:view'
     ],
 
     [MANAGER_ROLE]: [
         'user:view',
         'group:create',
         'group:update',
-        'group:view'
+        'group:view',
+        'expense:create',
+        'expense:view',
+        'expense:delete'
     ]
 
 };

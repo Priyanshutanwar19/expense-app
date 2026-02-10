@@ -19,6 +19,5 @@ router.get('/status', authorizeMiddleware('group:view'),
 groupController.getGroupsByPaymentStatus);
 router.get('/:groupId/audit', authorizeMiddleware('group:view'),
 groupController.getAudit);
-
-
-module.exports = router;
+router.get('/:groupId', authorizeMiddleware('group:view'),
+groupController.getGroupById);module.exports = router;

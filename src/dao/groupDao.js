@@ -30,6 +30,10 @@ const groupDao = {
         return await Group.find({ membersEmail: email });
     },
 
+    getGroupById: async (groupId) => {
+        return await Group.findById(groupId);
+    },
+
     getGroupByStatus: async (status) => {
         // Take email as the input, then filter groups by email
         // Check in membersEmail field.
