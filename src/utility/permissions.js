@@ -13,6 +13,7 @@ const permissions = {
         'expense:create',
         'expense:view',
         'expense:delete',
+        'expense:settle',
         'payment:create'
     ],
 
@@ -29,7 +30,8 @@ const permissions = {
         'group:view',
         'expense:create',
         'expense:view',
-        'expense:delete'
+        'expense:delete',
+        'expense:settle'
     ]
 
 };

@@ -30,6 +30,10 @@ const groupDao = {
         return await Group.find({ membersEmail: email });
     },
 
+    getGroupsByAdminEmail: async (adminEmail) => {
+        return await Group.find({ adminEmail: adminEmail });
+    },
+
     getGroupById: async (groupId) => {
         return await Group.findById(groupId);
     },
@@ -72,6 +76,10 @@ getGroupsPaginated: async (email, limit, skip, sortOptions = { createdAt: -1 }) 
   ]);
 
   return { groups, totalCount };
+},
+
+deleteGroup: async (groupId) => {
+    return await Group.findByIdAndDelete(groupId);
 },
 
 };

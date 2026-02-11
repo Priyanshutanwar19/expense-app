@@ -22,6 +22,11 @@ const expenseSchema = new mongoose.Schema({
         type: String,
         default: 'INR'
     },
+    category: {
+        type: String,
+        enum: ['food', 'transport', 'accommodation', 'entertainment', 'shopping', 'utilities', 'healthcare', 'other'],
+        default: 'other'
+    },
     paidBy: {
         type: String,
         required: true
@@ -29,6 +34,10 @@ const expenseSchema = new mongoose.Schema({
     splits: [{
         email: String,
         amount: Number,
+        paidAmount: {
+            type: Number,
+            default: 0
+        },
         isExcluded: {
             type: Boolean,
             default: false
@@ -37,6 +46,10 @@ const expenseSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    isSettled: {
+        type: Boolean,
+        default: false
     }
 });
 

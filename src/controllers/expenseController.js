@@ -1,56 +1,32 @@
-const expenseDao = require("../dao/expenseDao");
-const groupDao = require("../dao/groupDao");
-const Group = require("../model/group");
+const expenseDao = require('../dao/expenseDao');
+const groupDao = require('../dao/groupDao');
 
 const expenseController = {
     addExpense: async (request, response) => {
         try {
-            const { groupId, title, description, amount, splits } = request.body;
-            const userEmail = request.user.email;
+            const { title, description, amount, currency, groupId, splits, excludedMembers, category } = request.body;
+            const user = request.user;
 
-            // Validate group exists and user is a member
+            // Verify user is member of the group
             const group = await groupDao.getGroupById(groupId);
-
             if (!group) {
                 return response.status(404).json({ message: "Group not found" });
             }
 
-            if (!group.membersEmail.includes(userEmail)) {
-                return response.status(403).json({ 
-                    message: "You are not a member of this group" 
-                });
-            }
-
-            // Validate amount
-            if (amount <= 0) {
-                return response.status(400).json({ 
-                    message: "Expense amount must be greater than 0" 
-                });
-            }
-
-            // Validate splits
-            if (!splits || splits.length === 0) {
-                return response.status(400).json({ 
-                    message: "At least one member must be included in the expense" 
-                });
-            }
-
-            const totalSplitAmount = splits.reduce((sum, split) => sum + split.amount, 0);
-            
-            if (Math.abs(totalSplitAmount - amount) > 0.01) {
-                return response.status(400).json({ 
-                    message: "Split amounts must equal the expense amount" 
-                });
+            if (!group.membersEmail.includes(user.email)) {
+                return response.status(403).json({ message: "You are not a member of this group" });
             }
 
             const expenseData = {
-                groupId,
                 title,
                 description,
                 amount,
-                currency: 'INR',
-                paidBy: userEmail,
-                splits
+                currency: currency || 'INR',
+                groupId,
+                paidBy: user.email,
+                splits: splits || [],
+                excludedMembers: excludedMembers || [],
+                category
             };
 
             const newExpense = await expenseDao.createExpense(expenseData);
@@ -59,29 +35,31 @@ const expenseController = {
                 message: "Expense added successfully",
                 expense: newExpense
             });
-
         } catch (error) {
             console.error(error);
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({ message: "Error adding expense" });
         }
     },
 
     getExpenses: async (request, response) => {
         try {
-            const { groupId } = request.params;
-            const page = parseInt(request.query.page) || 1;
-            const limit = parseInt(request.query.limit) || 10;
-            const skip = (page - 1) * limit;
+            const { groupId, page = 1, limit = 10 } = request.query;
+            const user = request.user;
 
+            // Verify user is member of the group
             const group = await groupDao.getGroupById(groupId);
             if (!group) {
                 return response.status(404).json({ message: "Group not found" });
             }
 
+            if (!group.membersEmail.includes(user.email)) {
+                return response.status(403).json({ message: "You are not a member of this group" });
+            }
+
             const { expenses, totalCount } = await expenseDao.getExpensesByGroupIdPaginated(
                 groupId, 
-                limit, 
-                skip
+                parseInt(limit), 
+                (parseInt(page) - 1) * parseInt(limit)
             );
 
             response.status(200).json({
@@ -89,112 +67,175 @@ const expenseController = {
                 pagination: {
                     totalItems: totalCount,
                     totalPages: Math.ceil(totalCount / limit),
-                    currentPage: page,
-                    itemsPerPage: limit
+                    currentPage: parseInt(page),
+                    itemsPerPage: parseInt(limit)
                 }
             });
-
         } catch (error) {
             console.error(error);
             response.status(500).json({ message: "Error fetching expenses" });
         }
     },
 
-    getGroupBalance: async (request, response) => {
-        try {
-            const { groupId } = request.params;
-
-            const group = await groupDao.getGroupById(groupId);
-            if (!group) {
-                return response.status(404).json({ message: "Group not found" });
-            }
-
-            const balances = await expenseDao.getGroupBalance(groupId);
-
-            response.status(200).json({
-                groupId,
-                balances
-            });
-
-        } catch (error) {
-            console.error(error);
-            response.status(500).json({ message: "Error calculating balances" });
-        }
-    },
-
-    settleGroup: async (request, response) => {
-        try {
-            const { groupId } = request.params;
-            const userEmail = request.user.email;
-
-            const group = await groupDao.getGroupById(groupId);
-
-            if (!group) {
-                return response.status(404).json({ message: "Group not found" });
-            }
-
-            if (group.adminEmail !== userEmail) {
-                return response.status(403).json({ 
-                    message: "Only group admin can settle the group" 
-                });
-            }
-
-            // Delete all expenses for this group
-            const Expense = require("../model/expense");
-            await Expense.deleteMany({ groupId });
-
-            // Update group payment status
-            const updatedGroup = await Group.findByIdAndUpdate(
-                groupId,
-                {
-                    paymentStatus: {
-                        amount: 0,
-                        currency: 'INR',
-                        date: new Date(),
-                        isPaid: true
-                    }
-                },
-                { new: true }
-            );
-
-            response.status(200).json({
-                message: "Group settled successfully",
-                group: updatedGroup
-            });
-
-        } catch (error) {
-            console.error(error);
-            response.status(500).json({ message: "Error settling group" });
-        }
-    },
-
-    deleteExpense: async (request, response) => {
+    getExpenseById: async (request, response) => {
         try {
             const { expenseId } = request.params;
-            const userEmail = request.user.email;
+            const user = request.user;
 
             const expense = await expenseDao.getExpenseById(expenseId);
             if (!expense) {
                 return response.status(404).json({ message: "Expense not found" });
             }
 
-            if (expense.paidBy !== userEmail) {
-                return response.status(403).json({ 
-                    message: "Only the person who added the expense can delete it" 
-                });
+            // Verify user is member of the group
+            const group = await groupDao.getGroupById(expense.groupId);
+            if (!group || !group.membersEmail.includes(user.email)) {
+                return response.status(403).json({ message: "Access denied" });
+            }
+
+            response.status(200).json(expense);
+        } catch (error) {
+            console.error(error);
+            response.status(500).json({ message: "Error fetching expense" });
+        }
+    },
+
+    updateExpense: async (request, response) => {
+        try {
+            const { expenseId } = request.params;
+            const { title, description, amount, splits, excludedMembers, category } = request.body;
+            const user = request.user;
+
+            const expense = await expenseDao.getExpenseById(expenseId);
+            if (!expense) {
+                return response.status(404).json({ message: "Expense not found" });
+            }
+
+            // Verify user is admin of the group or paid by the user
+            const group = await groupDao.getGroupById(expense.groupId);
+            if (!group || (!group.adminEmail.includes(user.email) && expense.paidBy !== user.email)) {
+                return response.status(403).json({ message: "You can only update expenses you created or paid for" });
+            }
+
+            const updateData = {
+                title,
+                description,
+                amount,
+                splits,
+                excludedMembers,
+                category
+            };
+
+            const updatedExpense = await expenseDao.updateExpense(expenseId, updateData);
+            
+            response.status(200).json({
+                message: "Expense updated successfully",
+                expense: updatedExpense
+            });
+
+            // Refresh credits after successful operations
+            const { refreshCredits } = require('../context/CreditsContext');
+            refreshCredits();
+        } catch (error) {
+            console.error(error);
+            response.status(500).json({ message: "Error updating expense" });
+        }
+    },
+
+    deleteExpense: async (request, response) => {
+        try {
+            const { expenseId } = request.params;
+            const user = request.user;
+
+            const expense = await expenseDao.getExpenseById(expenseId);
+            if (!expense) {
+                return response.status(404).json({ message: "Expense not found" });
+            }
+
+            // Verify user is admin of the group or paid by the user
+            const group = await groupDao.getGroupById(expense.groupId);
+            if (!group || (!group.adminEmail.includes(user.email) && expense.paidBy !== user.email)) {
+                return response.status(403).json({ message: "You can only delete expenses you created or paid for" });
             }
 
             await expenseDao.deleteExpense(expenseId);
-
-            response.status(200).json({ 
-                message: "Expense deleted successfully" 
-            });
-
+            
+            response.status(200).json({ message: "Expense deleted successfully" });
         } catch (error) {
             console.error(error);
             response.status(500).json({ message: "Error deleting expense" });
         }
-    }
+    },
+
+    getGroupBalance: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const user = request.user;
+
+            // Verify user is member of the group
+            const group = await groupDao.getGroupById(groupId);
+            if (!group || !group.membersEmail.includes(user.email)) {
+                return response.status(403).json({ message: "You are not a member of this group" });
+            }
+
+            const balances = await expenseDao.getGroupBalance(groupId);
+            
+            response.status(200).json({
+                balances,
+                groupId
+            });
+        } catch (error) {
+            console.error(error);
+            response.status(500).json({ message: "Error fetching group balance" });
+        }
+    },
+
+    settleGroup: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const user = request.user;
+            
+            console.log('Settle group request:', { groupId, userEmail: user.email });
+
+            // Verify user is admin of the group
+            const group = await groupDao.getGroupById(groupId);
+            if (!group || !group.adminEmail.includes(user.email)) {
+                console.log('User not admin:', { user: user.email, adminEmail: group.adminEmail });
+                return response.status(403).json({ message: "Only group admins can settle expenses" });
+            }
+
+            console.log('User is admin, proceeding with settlement');
+
+            // Get all expenses for this group
+            const expensesResult = await expenseDao.getExpensesByGroupId(groupId);
+            const expenses = expensesResult.expenses || [];
+            console.log('Found expenses:', expenses.length);
+            
+            // Settle all expenses
+            const settledExpenses = await Promise.all(
+                expenses.map(expense => expenseDao.settleExpense(expense._id))
+            );
+            console.log('Settled expenses:', settledExpenses.length);
+
+            // Update group payment status
+            await groupDao.updateGroup(groupId, {
+                paymentStatus: {
+                    ...group.paymentStatus,
+                    isPaid: true,
+                    date: new Date()
+                }
+            });
+            console.log('Updated group payment status');
+
+            response.status(200).json({
+                message: "Group settled successfully",
+                settledExpenses: settledExpenses.map(e => e._id)
+            });
+        } catch (error) {
+            console.error(error);
+            response.status(500).json({ message: "Error settling group" });
+        }
+    },
 };
 
 module.exports = expenseController;

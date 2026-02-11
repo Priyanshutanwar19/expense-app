@@ -33,7 +33,7 @@ router.delete(
 
 router.post(
     '/:groupId/settle',
-    authorizeMiddleware('group:update'),
+    authorizeMiddleware('expense:settle'),
     expenseController.settleGroup
 );
 

@@ -20,4 +20,6 @@ groupController.getGroupsByPaymentStatus);
 router.get('/:groupId/audit', authorizeMiddleware('group:view'),
 groupController.getAudit);
 router.get('/:groupId', authorizeMiddleware('group:view'),
-groupController.getGroupById);module.exports = router;
+groupController.getGroupById);
+router.delete('/:groupId', authorizeMiddleware('group:delete'), groupController.deleteGroup);
+module.exports = router;
